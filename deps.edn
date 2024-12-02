@@ -1,0 +1,2 @@
+{:deps {scicloj/tablecloth {:mvn/version "7.029.2"}}
+ :aliases {}}
