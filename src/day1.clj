@@ -25,6 +25,18 @@
 (total-distance (->input "resources/sample1.txt"))
 (total-distance (->input "resources/input1_1.txt"))
 
+(defn similarity-score
+  [input]
+  (let [left (input :left)
+        right (input :right)
+        right-frequencies (frequencies right)
+        similarity (tcc/column-map left (fn [l] (get right-frequencies l 0)))
+        score (tcc/* left similarity)]
+    (tcc/reduce-+ score)))
+
+(similarity-score (->input "resources/sample1.txt"))
+(similarity-score (->input "resources/input1_1.txt"))
+
 (comment
 
   (comment))
