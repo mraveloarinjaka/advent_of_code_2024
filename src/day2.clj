@@ -1,30 +1,30 @@
 (ns day2
   (:require [tablecloth.api :as tc]
-            [tablecloth.column.api :as tcc]))
+            [tablecloth.column.api :as tcc]
+            [taoensso.timbre :as log]))
 
 (defn ->input
   [resource]
   (tc/dataset resource {:header-row? false
                         :separator " "
-                        ;:key-fn keyword
-                        }))
+                        :key-fn keyword}))
 
 (defn safe?
   [row]
-  ;(prn row)
-  (reduce (fn [{:keys [not-sorted? previous-value]
-                :as result} value]
+  (log/debug row)
+  (reduce (fn [{:keys [not-sorted? previous-level]
+                :as result} level]
             (cond
-              (nil? previous-value) (assoc result :previous-value value)
-              (= value previous-value) (reduced :identical)
-              (nil? not-sorted?) (assoc result
-                                        :not-sorted? (if (< previous-value value) > <)
-                                        :previous-value value)
-              (not-sorted? previous-value value) (reduced :not-sorted)
-              (< 3 (abs (- value previous-value))) (reduced :too-far-apart)
-              :default (assoc result :previous-value value)))
-          {:not-sorted? nil
-           :previous-value nil}
+              (= :not-set previous-level) (assoc result :previous-level level)
+              (= previous-level level) (reduced :identical)
+              (< 3 (abs (- level previous-level))) (reduced :too-far-apart)
+              (= :not-set not-sorted?) (assoc result
+                                              :not-sorted? (if (< previous-level level) > <)
+                                              :previous-level level)
+              (not-sorted? previous-level level) (reduced :not-sorted)
+              :default (assoc result :previous-level level)))
+          {:not-sorted? :not-set
+           :previous-level :not-set}
           (filter some? row)))
 
 (let [input (->input "resources/input2.txt")]
