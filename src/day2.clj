@@ -33,8 +33,8 @@
 (defn safe-when-resilient?
   [row]
   (if (unsafe? row)
-    (let [row-to-check (dissoc row :safe?)
-          max-nb-checks (count row-to-check)
+    (let [resilient (for [[col _] (dissoc row :safe?)
+                          :let [row-to-check (dissoc row col)
           still-not-safe-checks (for [col-to-exclude (keys row-to-check)
                                       :let [row-without-one-level (dissoc row-to-check col-to-exclude)
                                             unsafe ((comp some? UNSAFE safe?) row-without-one-level)]
