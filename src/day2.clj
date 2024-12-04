@@ -11,7 +11,7 @@
 
 (defn safe?
   [row]
-  (log/debug row)
+  ;(log/debug row)
   (reduce (fn [{:keys [not-sorted? previous-level]
                 :as result} level]
             (cond
@@ -25,14 +25,32 @@
               :default (assoc result :previous-level level)))
           {:not-sorted? :not-set
            :previous-level :not-set}
-          (filter some? row)))
+          (vals row)))
+
+(def UNSAFE #{:not-sorted :identical :too-far-apart})
+(def unsafe? (comp some? UNSAFE :safe?))
+
+(defn safe-when-resilient?
+  [row]
+  (if (unsafe? row)
+    (let [row-to-check (dissoc row :safe?)
+          max-nb-checks (count row-to-check)
+          still-not-safe-checks (for [col-to-exclude (keys row-to-check)
+                                      :let [row-without-one-level (dissoc row-to-check col-to-exclude)
+                                            unsafe ((comp some? UNSAFE safe?) row-without-one-level)]
+                                      :while unsafe]
+                                  unsafe)]
+      ;(log/debug :still-not-safe-checks still-not-safe-checks)
+      (< (count still-not-safe-checks) max-nb-checks))
+    true))
 
 (let [input (->input "resources/input2.txt")]
   (-> input
       (tc/map-rows (fn [row]
-                     {:safe? (safe? (vals row))}))
-      (tc/drop-rows (comp
-                     #{:not-sorted :identical :too-far-apart}
-                     :safe?))
+                     {:safe? (safe? row)}))
+      ;(tc/drop-rows (comp UNSAFE :safe?))
+      (tc/map-rows (fn [row]
+                     {:safe-when-resilient? (safe-when-resilient? row)}))
+      (tc/select-rows :safe-when-resilient?)
       tc/row-count))
 
