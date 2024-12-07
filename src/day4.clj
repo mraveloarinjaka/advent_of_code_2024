@@ -51,3 +51,36 @@
                  (filter #(= "XMAS" %))
                  count))))
 
+(def X-CORNERS
+  {:north-west [-1 -1]
+   :south-east [1 1]
+   :south-west [1 -1]
+   :north-east [-1 1]})
+
+(defn ->x-corners
+  [max-x max-y [x y]]
+  (for [[_ [dx dy]] X-CORNERS
+        :let [[xi yi] [(+ x dx) (+ y dy)]]
+        :when (and (< -1 xi max-x)
+                   (< -1 yi max-x))]
+    [xi yi]))
+
+(def VALID-X-CORNERS
+  #{"MSMS" "MSSM" "SMMS" "SMSM"})
+
+(let [sample (->> (slurp "resources/input4.txt")
+                  clojure.string/split-lines
+                  (map vec)
+                  dtt/->tensor)
+      dims (dtt/tensor->dimensions sample)
+      [sx _] (dtd/strides dims)
+      [max-x max-y] (dtd/->2d-shape dims)
+      AsIDX (ops/argfilter \A sample)
+      AsXY (map (partial ->xy sx) AsIDX)]
+  (->> AsXY
+       (map (partial ->x-corners max-x max-y))
+       (map #(map (partial ->idx sx) %))
+       (map #(map (partial dtype/get-value sample) %))
+       (map #(apply str %))
+       (filter VALID-X-CORNERS)
+       count))
