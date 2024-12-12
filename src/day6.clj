@@ -17,6 +17,7 @@
     (+ (* row-stride row) col)))
 
 (def BLOCK \#)
+(def EMPTY \.)
 
 (defn ->input
   [resource]
@@ -29,6 +30,7 @@
     {:position (->row-col dims start)
      :direction (dtype/get-value input start)
      :blocks (set (map (partial ->row-col dims) (ops/argfilter BLOCK input)))
+     :empty-spaces (dtype/->buffer (ops/argfilter EMPTY input))
      :lab-map input}))
 
 (def MOVEMENTS
@@ -68,20 +70,36 @@
     ;(println :turn! turn)
     turn))
 
-(let [input (->input "resources/input6.txt")
+(defn patrol
+  [input]
+  (let [dims (dtt/tensor->dimensions (:lab-map input))]
+    (loop [{:keys [position direction]
+            :as current} input
+           steps 0
+           visited #{}
+           loop-detection #{}]
+      (let [new-position (move position direction)]
+        (cond
+          (is-out? input position) #_> [:exited current (count visited)]
+          (loop-detection [position direction]) #_> [:loop current (count visited)]
+          (is-occupied? input new-position) #_> (recur (turn! current) steps visited loop-detection)
+          :else (recur (-> current
+                           (assoc :position new-position)
+                           (update :lab-map (fn mark-position
+                                              [map-to-update]
+                                              (dtype/set-value! map-to-update (->index dims position) steps))))
+                       (inc steps)
+                       (conj visited position)
+                       (conj loop-detection [position direction])))))))
+
+(let [{:keys [empty-spaces]
+       :as input} (->input "resources/input6.txt")
       dims (dtt/tensor->dimensions (:lab-map input))]
-  (loop [{:keys [position direction]
-          :as current} input
-         steps 0
-         visited #{}]
-    (let [new-position (move position direction)]
-      (cond
-        (is-out? input position)
-        #_> [current (count visited)]
-        (is-occupied? input new-position)
-        #_> (recur (turn! current) steps visited)
-        :else (recur (-> current
-                         (assoc :position new-position)
-                         (update :lab-map #(dtype/set-value! % (->index dims position) steps)))
-                     (inc steps)
-                     (conj visited position))))))
+  (count (for [empty-space-idx empty-spaces
+               :let [empty-space (->row-col dims empty-space-idx)
+                     updated-with-new-obstruction (update input :blocks conj empty-space)
+                     [patrol-result] (patrol updated-with-new-obstruction)]
+               :when (= patrol-result :loop)]
+           empty-space)))
+
+
