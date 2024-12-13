@@ -30,7 +30,7 @@
     {:position (->row-col dims start)
      :direction (dtype/get-value input start)
      :blocks (set (map (partial ->row-col dims) (ops/argfilter BLOCK input)))
-     :empty-spaces (dtype/->buffer (ops/argfilter EMPTY input))
+     :empty-spaces-idx (dtype/->buffer (ops/argfilter EMPTY input))
      :lab-map input}))
 
 (def MOVEMENTS
@@ -80,8 +80,8 @@
            loop-detection #{}]
       (let [new-position (move position direction)]
         (cond
-          (is-out? input position) #_> [:exited current (count visited)]
-          (loop-detection [position direction]) #_> [:loop current (count visited)]
+          (is-out? input position) #_> [:exited current visited (count visited)]
+          (loop-detection [position direction]) #_> [:loop current visited (count visited)]
           (is-occupied? input new-position) #_> (recur (turn! current) steps visited loop-detection)
           :else (recur (-> current
                            (assoc :position new-position)
@@ -92,11 +92,12 @@
                        (conj visited position)
                        (conj loop-detection [position direction])))))))
 
-(let [{:keys [empty-spaces]
+(let [{:keys [empty-spaces-idx]
        :as input} (->input "resources/input6.txt")
-      dims (dtt/tensor->dimensions (:lab-map input))]
-  (count (for [empty-space-idx empty-spaces
-               :let [empty-space (->row-col dims empty-space-idx)
+      dims (dtt/tensor->dimensions (:lab-map input))
+      [_ _ visited _] (patrol input)]
+  (count (for [empty-space visited
+               :let [;empty-space (->row-col dims empty-space-idx)
                      updated-with-new-obstruction (update input :blocks conj empty-space)
                      [patrol-result] (patrol updated-with-new-obstruction)]
                :when (= patrol-result :loop)]
