@@ -1,5 +1,6 @@
 {:deps {scicloj/tablecloth {:mvn/version "7.029.2"}
         com.taoensso/timbre {:mvn/version "6.6.1"}
         org.clojure/math.combinatorics {:mvn/version "0.3.0"}
-        criterium/criterium {:mvn/version "0.4.6"}}
- :aliases {:dev {:jvm-opts ["-Djdk.attach.allowAttachSelf"]}}}
+        org.clj-commons/claypoole {:mvn/version "1.2.2"}}
+ :aliases {:dev {:extra-deps {criterium/criterium {:mvn/version "0.4.6"}}
+                 :jvm-opts ["-Djdk.attach.allowAttachSelf"]}}}

@@ -1,5 +1,6 @@
 (ns day7
   (:require [clojure.math.combinatorics :as cx]
+            [com.climate.claypoole :as cp]
             [taoensso.timbre :as log]))
 
 (defn ->input
@@ -14,7 +15,7 @@
                                         (map parse-long))]
                 [parsed-test-result parsed-numbers])))))
 
-(def OPERATORS ['+ '*])
+(def OPERATORS [+ *])
 
 #_(mapv #(eval (list % 40 2)) OPERATORS)
 
@@ -27,23 +28,24 @@
 (defn evaluate-operators-seq
   [target numbers ops]
   (->> (reduce (fn apply-op [[arg1 arg2 & remaining] op]
-                 (let [result (eval (list op arg1 arg2))]
+                 (let [result (op arg1 arg2)]
                    (if (< target result)
                      (reduced (list result))
                      (conj remaining result)))) numbers ops)
        first))
 
-(evaluate-operators-seq 1 '(40 2) (repeat 1 '+))
+(evaluate-operators-seq 1 '(40 2) (repeat 1 +))
 
 (defn evaluate
   [operators result numbers]
   (let [nb-operators (dec (count numbers))
         evaluator (partial evaluate-operators-seq result numbers)
-        lower-bound (evaluator (repeat nb-operators '+))
-        upper-bound (evaluator (repeat nb-operators '*))
+        ;lower-bound (evaluator (repeat nb-operators +))
+        ;upper-bound (evaluator (repeat nb-operators *))
         operators-selections (*compute-operators-seq* operators nb-operators)]
-    (when (<= lower-bound result upper-bound)
-      (some #(= result (evaluator %)) operators-selections))))
+    (some #{result}
+          (cp/with-shutdown! [pool (cp/threadpool (cp/ncpus))]
+            (doall (cp/pmap pool evaluator operators-selections))))))
 
 (->> (nth (->input "resources/input7.txt") 10)
      ((fn [[result numbers]]
