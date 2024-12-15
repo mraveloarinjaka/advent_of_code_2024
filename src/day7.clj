@@ -15,7 +15,11 @@
                                         (map parse-long))]
                 [parsed-test-result parsed-numbers])))))
 
-(def OPERATORS [+ *])
+(defn ||
+  [arg1 arg2]
+  (parse-long (str arg1 arg2)))
+
+(def OPERATORS [+ * ||])
 
 #_(mapv #(eval (list % 40 2)) OPERATORS)
 
