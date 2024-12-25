@@ -1,15 +1,15 @@
-(ns day8
-  (:require [clojure.math.combinatorics :as cx]
-            [com.climate.claypoole :as cp]
-            [taoensso.timbre :as log]
-            [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.argops :as ops]
-            [tech.v3.tensor :as dtt]
-            [tech.v3.tensor.dimensions :as dtd]
-            [thi.ng.geom.core :as gcore]
-            [thi.ng.geom.types :as gtypes]
-            [thi.ng.geom.vector :as vec]
-            [thi.ng.math.core :as mcore]))
+ (ns day8
+   (:require [clojure.math.combinatorics :as cx]
+             [com.climate.claypoole :as cp]
+             [taoensso.timbre :as log]
+             [tech.v3.datatype :as dtype]
+             [tech.v3.datatype.argops :as ops]
+             [tech.v3.tensor :as dtt]
+             [tech.v3.tensor.dimensions :as dtd]
+             [thi.ng.geom.core :as gcore]
+             [thi.ng.geom.types :as gtypes]
+             [thi.ng.geom.vector :as vec]
+             [thi.ng.math.core :as mcore]))
 
 (defn ->row-col
   [dims index]
@@ -39,8 +39,8 @@
 
 (defn valid?
   [dims v]
-  ;(println v)
-  (let [[row col] v 
+   ;(println v)
+  (let [[row col] v
         [max-row max-col] (:shape dims)
         idx (->index dims [row col])]
     (and (< -0.5 row max-row)
@@ -57,7 +57,7 @@
                         :let [dvn (gcore/scale dv n)
                               a1 (mcore/- v1 dvn)
                               a2 (mcore/+ v2 dvn)]
-                        :when (or (valid? dims a1) 
+                        :when (or (valid? dims a1)
                                   (valid? dims a2))]
                     [a1 a2]))))
 
