@@ -37,23 +37,33 @@
      :antennas-map input
      :dims dims}))
 
+(defn valid?
+  [dims v]
+   ;(println v)
+  (let [[row col] v
+        [max-row max-col] (:shape dims)
+        idx (->index dims [row col])]
+    (and (< -0.5 row max-row)
+         (< -0.5 col max-col)
+         v)))
+
+(def ^:dynamic *with-resonant-harmonics* false)
+
 (defn ->antinodes
-  [v1 v2]
-  (let [dv (mcore/- v2 v1)]
-    [(mcore/- v1 dv)
-     (mcore/+ v2 dv)]))
+  [dims v1 v2]
+  (let [[sx] (:strides dims)
+        dv (mcore/- v2 v1)]
+    (apply concat (for [n (if *with-resonant-harmonics* (range sx) [1])
+                        :let [dvn (gcore/scale dv n)
+                              a1 (mcore/- v1 dvn)
+                              a2 (mcore/+ v2 dvn)]
+                        :when (or (valid? dims a1)
+                                  (valid? dims a2))]
+                    [a1 a2]))))
 
 #_(let [v1 (vec/vec2 1 1)
         v2 (vec/vec2 2 2)]
-    (->antinodes v1 v2))
-
-(defn valid?
-  [dims [row col]]
-  ;(println v)
-  (let [[max-row max-col] (:shape dims)
-        idx (->index dims [row col])]
-    (and (< -0.5 row max-row)
-         (< -0.5 col max-col))))
+    (->antinodes 0 v1 v2))
 
 #_(cx/combinations (range 1 9) 2)
 
@@ -64,13 +74,15 @@
                  (for [[idx1 idx2] (cx/combinations antennas-idxs 2)
                        :let [v1 (vec/vec2 (->row-col dims idx1))
                              v2 (vec/vec2 (->row-col dims idx2))]]
-                   (->antinodes v1 v2)))))
+                   (->antinodes dims v1 v2)))))
 
-(let [input (->input "resources/input8.txt")]
-  (->> (:antennas-idxs input)
-       (reduce-kv (fn [res k v]
-                    (case k
-                      :empty res
-                      (into res (antenna-idxs->antinodes (:dims input) v))))
-                  #{})
-       count))
+(binding [*with-resonant-harmonics* true]
+  (let [input (->input "resources/input8.txt")]
+    (when *with-resonant-harmonics* (println "*with-resonant-harmonics*"))
+    (->> (:antennas-idxs input)
+         (reduce-kv (fn [res k v]
+                      (case k
+                        :empty res
+                        (into res (antenna-idxs->antinodes (:dims input) v))))
+                    #{})
+         count)))
