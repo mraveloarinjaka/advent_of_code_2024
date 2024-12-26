@@ -1,15 +1,15 @@
- (ns day8
-   (:require [clojure.math.combinatorics :as cx]
-             [com.climate.claypoole :as cp]
-             [taoensso.timbre :as log]
-             [tech.v3.datatype :as dtype]
-             [tech.v3.datatype.argops :as ops]
-             [tech.v3.tensor :as dtt]
-             [tech.v3.tensor.dimensions :as dtd]
-             [thi.ng.geom.core :as gcore]
-             [thi.ng.geom.types :as gtypes]
-             [thi.ng.geom.vector :as vec]
-             [thi.ng.math.core :as mcore]))
+(ns day8
+  (:require [clojure.math.combinatorics :as cx]
+            [com.climate.claypoole :as cp]
+            [taoensso.timbre :as log]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.argops :as ops]
+            [tech.v3.tensor :as dtt]
+            [tech.v3.tensor.dimensions :as dtd]
+            [thi.ng.geom.core :as gcore]
+            [thi.ng.geom.types :as gtypes]
+            [thi.ng.geom.vector :as vec]
+            [thi.ng.math.core :as mcore]))
 
 (defn ->row-col
   [dims index]
