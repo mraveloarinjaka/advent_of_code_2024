@@ -34,24 +34,35 @@
                  next-type
                  remaining
                  updated-disk-map))
-        (dtype/make-list :long updated-disk-map)))))
+        (dtype/make-list :int64 updated-disk-map)))))
 
 (defn disk-map->str
   [decoded]
   (reduce #(str %1 (if (= EMPTY-SPACE-ID %2) EMPTY-SPACE-REPR %2)) "" decoded))
 
 (defn find-next-space
-  [disk-map idx]
-  (let [length (dtype/ecount disk-map)
-        last-idx (dec length)]
-    (when (< idx last-idx)
-      (loop [current-idx (inc idx)
+  [{:keys [disk-map length last-idx]} idx]
+  #_(let [where-to-look (dtype/sub-buffer disk-map (inc idx))
+          length (dtype/ecount where-to-look)
+          idx (ops/index-of where-to-look EMPTY-SPACE-ID)]
+      (when (< idx length) idx))
+  (when (< idx last-idx)
+    (let [current-idx (inc idx)
+          current (dtype/get-value disk-map current-idx)
+          next-idx (inc current-idx)]
+      (cond
+        (= EMPTY-SPACE-ID current) current-idx
+        (<= length next-idx) nil
+        :default (let [where-to-look (dtype/sub-buffer disk-map next-idx)
+                       next-space-idx (+ next-idx (ops/index-of where-to-look EMPTY-SPACE-ID))]
+                   next-space-idx)))
+    #_(loop [current-idx (inc idx)
              current (dtype/get-value disk-map current-idx)]
         (let [next-idx (inc current-idx)]
           (cond
             (= EMPTY-SPACE-ID current) current-idx
             (<= length next-idx) nil
-            :default (recur next-idx (dtype/get-value disk-map next-idx))))))))
+            :default (recur next-idx (dtype/get-value disk-map next-idx)))))))
 
 (defn find-previous-file-block
   [disk-map idx]
@@ -64,10 +75,17 @@
         :default (let [next-idx (dec current-idx)]
                    (recur next-idx (dtype/get-value disk-map next-idx)))))))
 
-(defn compact
+(defn ->disk-map-data
   [disk-map]
   (let [length (dtype/ecount disk-map)]
-    (loop [space-idx (find-next-space disk-map -1)
+    {:disk-map disk-map
+     :length length
+     :last-idx (dec length)}))
+
+(defn compact
+  [disk-map]
+  (let [data (->disk-map-data disk-map)]
+    (loop [space-idx (find-next-space data -1)
            file-block-idx (find-previous-file-block disk-map length)
            compacted disk-map]
       ;(println (disk-map->str compacted))
@@ -76,8 +94,8 @@
         (do
           (dtype/set-value! compacted space-idx (dtype/get-value compacted file-block-idx))
           (dtype/set-value! compacted file-block-idx EMPTY-SPACE-ID)
-          (recur (find-next-space disk-map space-idx)
-                 (find-previous-file-block disk-map file-block-idx)
+          (recur (find-next-space data space-idx)
+                 (find-previous-file-block compacted file-block-idx)
                  compacted))))))
 
 (defn compute-checksum
@@ -92,7 +110,7 @@
            :checksum 0}
           disk-map))
 
-(let [input (->input "resources/input9.txt")
+(let [input (->input "resources/sample9.txt")
       disk-map (->disk-map input)
       compacted (compact disk-map)]
   (compute-checksum compacted))
@@ -104,27 +122,35 @@
 
 (defn find-space-end-idx
   [disk-map space-start-idx]
-  (let [length (dtype/ecount disk-map)
-        last-idx (dec length)]
-    (loop [current-idx (inc space-start-idx)]
-      (cond
-        (< last-idx current-idx) (dec current-idx)
-        (not= EMPTY-SPACE-ID (dtype/get-value disk-map current-idx)) (dec current-idx)
-        :default (recur (inc current-idx))))))
+  #_(let [length (dtype/ecount disk-map)
+          last-idx (dec length)]
+      (loop [current-idx (inc space-start-idx)]
+        (cond
+          (< last-idx current-idx) (dec current-idx)
+          (not= EMPTY-SPACE-ID (dtype/get-value disk-map current-idx)) (dec current-idx)
+          :default (recur (inc current-idx)))))
+  (let [where-to-look (dtype/sub-buffer disk-map (inc space-start-idx))
+        ; why = ?
+        ; there is either a bug or I do not understand how index-of works
+        space-end-idx (ops/index-of where-to-look = EMPTY-SPACE-ID)]
+    #_(println :where-to-look where-to-look
+               :find-space-end-idx [space-start-idx space-end-idx])
+    (+ space-start-idx space-end-idx)))
 
 (defn ->length [start-idx end-idx]
   (+ 1 (- end-idx start-idx)))
 
 (defn find-available-space
   [disk-map file-block-start-idx file-block-length]
-  (loop [space-start-idx (find-next-space disk-map -1)]
-    (if (or (nil? space-start-idx) (<= file-block-start-idx space-start-idx))
-      nil
-      (let [space-end-idx (find-space-end-idx disk-map space-start-idx)
-            space-length (->length space-start-idx space-end-idx)]
-        (if (<= file-block-length space-length)
-          [space-start-idx space-length]
-          (recur (find-next-space disk-map space-end-idx)))))))
+  (let [data (->disk-map-data disk-map)]
+    (loop [space-start-idx (find-next-space data -1)]
+      (if (or (nil? space-start-idx) (<= file-block-start-idx space-start-idx))
+        nil
+        (let [space-end-idx (find-space-end-idx disk-map space-start-idx)
+              space-length (->length space-start-idx space-end-idx)]
+          (if (<= file-block-length space-length)
+            [space-start-idx space-length]
+            (recur (find-next-space data space-end-idx))))))))
 
 #_(let [input (->input "resources/sample9.txt")
         disk-map (->disk-map input)]
@@ -133,23 +159,21 @@
 
 (defn move-to-available-space
   [disk-map file-block-start-idx file-block-length space-idx]
-  (let [to-move (dtype/indexed-buffer (range file-block-start-idx (+ file-block-start-idx file-block-length)) disk-map)
-        target (dtype/indexed-buffer (range space-idx (+ space-idx file-block-length)) disk-map)]
+  (let [to-move (dtype/sub-buffer disk-map file-block-start-idx file-block-length)
+        target (dtype/sub-buffer disk-map space-idx file-block-length)]
     (dtype/copy! to-move target)
     (dtype/set-constant! disk-map file-block-start-idx file-block-length EMPTY-SPACE-ID)))
 
-(let [input (->input "resources/sample9.txt")
-      disk-map (->disk-map input)]
+(defn compact-bis
+  [disk-map]
   (let [length (dtype/ecount disk-map)]
     (loop [file-block-end-idx (find-previous-file-block disk-map length)
            file-block-start-idx (find-file-block-start-idx disk-map file-block-end-idx)
-           files []
            compacted disk-map]
       ;(log/debug :file-block-start-idx file-block-start-idx :wfile-block-end-idx file-block-end-idx)
       ;(println (disk-map->str compacted))
       (let [file-block-length (->length file-block-start-idx file-block-end-idx)
-            available-space (find-available-space compacted file-block-start-idx file-block-length)
-            updated-files (conj files [file-block-start-idx file-block-end-idx available-space])]
+            available-space (find-available-space compacted file-block-start-idx file-block-length)]
         (when-let [[space-idx _] available-space]
           (move-to-available-space compacted file-block-start-idx file-block-length space-idx))
         (if (zero? file-block-start-idx)
@@ -157,6 +181,31 @@
           (if-let [next-file-block-end-idx (find-previous-file-block compacted file-block-start-idx)]
             (recur next-file-block-end-idx
                    (find-file-block-start-idx compacted next-file-block-end-idx)
-                   updated-files
                    compacted)
             (compute-checksum compacted)))))))
+
+(let [input (->input "resources/sample9.txt")
+      disk-map (->disk-map input)]
+  (compact-bis disk-map))
+
+;(let [buffer (dtype/make-list :int64 (range 4 10))]
+;    (println buffer)
+;    (ops/index-of buffer not= 5))
+
+(comment
+
+  (require '[clj-async-profiler.core :as prof])
+
+  (prof/profile (dotimes [i 1000]
+                  (let [input (->input "resources/sample9.txt")
+                        disk-map (->disk-map input)]
+                    (compact-bis disk-map))))
+
+  (prof/profile (let [input (->input "resources/input9.txt")
+                      disk-map (->disk-map input)]
+                  (compact-bis disk-map)))
+
+  (prof/serve-ui 8282)
+
+  (comment))
+
