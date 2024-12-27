@@ -4,4 +4,4 @@
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
         thi.ng/geom {:mvn/version "1.0.1"}}
  :aliases {:dev {:extra-deps {criterium/criterium {:mvn/version "0.4.6"}}
-                 :jvm-opts ["-Djdk.attach.allowAttachSelf"]}}}
+                 :jvm-opts ["-XX:+EnableDynamicAgentLoading" "-Djdk.attach.allowAttachSelf"]}}}
