@@ -11,7 +11,7 @@
 
 (defn safe?
   [row]
-  ;(log/debug row)
+  ;(log/debug :safe? row)
   (reduce (fn [{:keys [not-sorted? previous-level]
                 :as result} level]
             (cond
@@ -28,27 +28,31 @@
           (vals row)))
 
 (def UNSAFE #{:not-sorted :identical :too-far-apart})
-(def unsafe? (comp some? UNSAFE :safe?))
+(def unsafe? (comp some? UNSAFE))
 
 (defn safe-when-resilient?
   [row]
-  (if (unsafe? row)
-    (let [resilient (for [[col _] (dissoc row :safe?)
-                          :let [row-to-check (dissoc row col)
-          still-not-safe-checks (for [col-to-exclude (keys row-to-check)
-                                      :let [row-without-one-level (dissoc row-to-check col-to-exclude)
-                                            unsafe ((comp some? UNSAFE safe?) row-without-one-level)]
+  (if ((comp unsafe? :safe?) row)
+    (let [cols-to-check (dissoc row :safe?)
+          ;_ (log/debug :row-to-check cols-to-check)
+          max-nb-checks (count cols-to-check)
+          ;_ (log/debug :max-nb-checks max-nb-checks)
+          still-unsafe-checks (for [col-to-exclude (keys cols-to-check)
+                                      :let [row-without-one-level (dissoc cols-to-check col-to-exclude)
+                                            ;_ (log/debug :row-without-one-level row-without-one-level)
+                                            unsafe ((comp unsafe? safe?) row-without-one-level)]
                                       :while unsafe]
-                                  unsafe)]
-      ;(log/debug :still-not-safe-checks still-not-safe-checks)
-      (< (count still-not-safe-checks) max-nb-checks))
+                                  unsafe)
+          ;_ (log/debug :still-not-safe-checks still-not-safe-checks)
+          ]
+      (< (count still-unsafe-checks) max-nb-checks))
     true))
 
 (let [input (->input "resources/input2.txt")]
   (-> input
       (tc/map-rows (fn [row]
                      {:safe? (safe? row)}))
-      ;(tc/drop-rows (comp UNSAFE :safe?))
+      #_(tc/drop-rows (comp UNSAFE :safe?))
       (tc/map-rows (fn [row]
                      {:safe-when-resilient? (safe-when-resilient? row)}))
       (tc/select-rows :safe-when-resilient?)
