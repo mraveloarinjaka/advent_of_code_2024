@@ -84,7 +84,8 @@
 
 (defn compact
   [disk-map]
-  (let [data (->disk-map-data disk-map)]
+  (let [data (->disk-map-data disk-map)
+        {:keys [length]} data]
     (loop [space-idx (find-next-space data -1)
            file-block-idx (find-previous-file-block disk-map length)
            compacted disk-map]
